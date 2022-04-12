@@ -1,5 +1,7 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const axios = require('axios');
+const short = require('short-uuid');
 const asyncHandler = require('express-async-handler');
 const User = require('../models/User');
 
@@ -7,6 +9,7 @@ const User = require('../models/User');
 const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
   // Check for user email
+
   const user = await User.findOne({ email });
   if (user && (await bcrypt.compare(password, user.password))) {
     res.json({
@@ -39,6 +42,26 @@ const register = asyncHandler(async (req, res) => {
   const salt = await bcrypt.genSalt(10);
   const hashedPassword = await bcrypt.hash(password, salt);
 
+  // Create user for chat engine
+  const [first_name, last_name] = name.split(' ');
+  const data = {
+    username: `${first_name}${last_name}`,
+    email: email,
+    secret: hashedPassword,
+    first_name: first_name,
+    last_name: last_name,
+  };
+  const config = {
+    method: 'POST',
+    url: 'https://api.chatengine.io/users/',
+    headers: {
+      'PRIVATE-KEY': process.env.CHAT_ENGINE_PRIVATE_KEY,
+    },
+    data: data,
+  };
+  const response = await axios(config);
+  const chatUser = response.data.data;
+  // Create user for backend
   const user = await User.create({
     name,
     email,
@@ -46,12 +69,15 @@ const register = asyncHandler(async (req, res) => {
   });
 
   if (user) {
-    res.status(201).json({
-      _id: user.id,
-      name: user.name,
-      email: user.email,
-      token: generateToken(user._id),
-    });
+    console.log(
+      res.status(201).json({
+        _id: user.id,
+        name: user.name,
+        email: user.email,
+        chatUser: chatUser,
+        token: generateToken(user._id),
+      })
+    );
   } else {
     res.status(400);
     throw new Error('Invalid user data.');
