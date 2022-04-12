@@ -60,7 +60,8 @@ const register = asyncHandler(async (req, res) => {
     data: data,
   };
   const response = await axios(config);
-  const chatUser = response.data.data;
+  const chatUser = response.data;
+  console.log(chatUser);
   // Create user for backend
   const user = await User.create({
     name,
